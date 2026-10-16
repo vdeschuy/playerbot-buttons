@@ -23,9 +23,9 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Regroup | `/p flee` (stop attacking + follow) | — |
 | Attack | `/p attack` | — |
 | Pull | `/p pull` | — |
-| Stop / Go | `/p all ~passive` (toggle) | `/p all -passive` |
-| Melee Hold | toggle melee `co ~passive` (melee keep following, stop attacking) | melee `co -passive` |
-| Wait at Pull | `/p co ~wait for attack` (toggle) | — |
+| Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
+| Melee Hold | toggle melee `passive` (`co +passive` / `co -passive`) | release melee (`co -passive`) |
+| Wait at Pull | toggle `wait for attack` (`co +wait for attack` / `co -wait for attack`) | force off (`co -wait for attack`) |
 | Tank Attack | `/p tank attack` | — |
 | Max DPS | `/p max dps` | — |
 | Healer Stay | whisper your healer `stay` | — |
@@ -33,6 +33,12 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 
 `/p` broadcasts to every bot in your group; the melee and healer buttons whisper
 specific bots. The healer's name is configurable in settings.
+
+The three toggles (Stop/Go, Melee Hold, Wait at Pull) send **absolute `+`/`-`
+commands** driven by the addon's own toggle state, not `~`. An addon cannot read a
+bot's real strategies, so a `~` toggle would flip whatever the server currently
+has and compound any drift; with absolute commands the button always commands the
+state it shows, and a one-off desync self-corrects on the next press.
 
 ## How commands are sent
 
@@ -57,15 +63,19 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.1.0.zip BotButtons -x 'BotButtons/.git/*'
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.2.0.zip BotButtons -x 'BotButtons/.git/*'
 ```
 
 ## Notes / known limits
 
-- **Last-pressed indicator:** the button you press gets a green border that stays
-  until you press another one. The three toggles (Stop/Go, Melee Hold, Wait at
-  Pull) toggle their own highlight off when pressed a second time. This is a
-  "last pressed" cue only — the addon cannot read real bot state.
+- **Indicator means "toggle ON", not "last pressed":** the green border is
+  per-button and means *this toggle is commanded ON by the addon*; several can be
+  lit at once. It is the addon's own view — **the client cannot read a bot's real
+  strategies**, so a bot changed elsewhere (another addon, the mangosd console,
+  `apply_bots.py`, or a relog onto a recreated bot) can be out of step until you
+  press the button again. One-shot buttons only flash the border for ~0.6 s as
+  "command sent" feedback. If things ever drift apart, **Settings → "Force toggles
+  off (resync)"** clears the addon state and sends the matching off commands.
 - **Restart the client** (or at least re-login) after installing so the addon
   loads; new addons are not picked up by `/reload` alone.
 - **Melee Hold** is class-based (warrior/rogue/paladin/shaman/druid) because

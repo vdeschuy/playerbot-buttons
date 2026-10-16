@@ -27,6 +27,8 @@ local DEFAULTS = {
     visibleChat = false,
     healerName  = "Healer",
     waitTime    = 5,
+    -- addon-side toggle state (the client cannot read the bots' real strategies)
+    toggles     = { passive = false, meleehold = false, wait = false },
     point       = { "BOTTOM", "BOTTOM", 0, 160 },
 }
 
@@ -35,10 +37,11 @@ local MELEE_CLASSES = { WARRIOR = true, ROGUE = true, PALADIN = true, SHAMAN = t
 
 -- button look
 local BORDER_ALPHA = 0.28                       -- normal border opacity (subtle)
-local BORDER_ACTIVE = { 0.25, 0.95, 0.4, 0.9 }  -- last-pressed highlight
+local BORDER_ACTIVE = { 0.25, 0.95, 0.4, 0.9 }  -- toggle-ON / command-sent highlight
+local FLASH_TIME = 0.6                          -- seconds a one-shot command stays lit
 
 -- forward-declared locals (assigned later) -----------------------------------
-local BB_sendGroup, BB_toggleMeleeHold, BB_whisperHealer
+local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer
 local BB_buildBar, BB_layoutBar, BB_updateBarVisibility, BB_refreshKeybinds
 local BB_openSettings, BB_toggleSettings, BB_startCapture
 
@@ -81,6 +84,14 @@ local function show(frame, visible)
     if visible then frame:Show() else frame:Hide() end
 end
 
+-- deep-ish copy so DEFAULTS tables (arrays like `point`, maps like `toggles`)
+-- can be restored without sharing references.
+local function copyTable(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = (type(v) == "table") and copyTable(v) or v end
+    return out
+end
+
 local function applyAnchor()
     if not bar then return end
     local p = O.point or DEFAULTS.point
@@ -121,8 +132,10 @@ BB_sendGroup = function(cmd)
     if chat then transport(cmd, chat) else transport(cmd, "SAY") end
 end
 
-BB_toggleMeleeHold = function(release)
-    local cmd = release and "co -passive" or "co ~passive"
+-- Melee DPS hold: whisper an ABSOLUTE passive command to melee classes only
+-- (so ranged keep firing). `on` = hold, `off` = release.
+BB_setMeleePassive = function(on)
+    local cmd = on and "co +passive" or "co -passive"
     local prefix = UnitInRaid("player") and "raid" or "party"
     local n = GetNumGroupMembers()
     for i = 1, n do
@@ -178,20 +191,22 @@ local ACTIONS = {
       binding = "BOTBUTTONS_PASSIVE", isToggle = true,
       desc = "Toggle |cffff8080stop attacking|r on all bots (both states).",
       rightDesc = "Force attack (clear passive).",
-      onLeft  = function() BB_sendGroup("all ~passive") end,
-      onRight = function() BB_sendGroup("all -passive") end },
+      onOn  = function() BB_sendGroup("all +passive") end,
+      onOff = function() BB_sendGroup("all -passive") end },
 
     { key = "meleehold", label = "Melee Hold", icon = "Ability_Warrior_ShieldWall",
       binding = "BOTBUTTONS_MELEEHOLD", isToggle = true,
       desc = "Toggle: melee DPS hold (keep following, stop attacking) while ranged keep firing.",
       rightDesc = "Release melee (clear passive).",
-      onLeft  = function() BB_toggleMeleeHold(false) end,
-      onRight = function() BB_toggleMeleeHold(true) end },
+      onOn  = function() BB_setMeleePassive(true) end,
+      onOff = function() BB_setMeleePassive(false) end },
 
     { key = "wait", label = "Wait at Pull", icon = "Ability_Hunter_Readiness",
       binding = "BOTBUTTONS_WAIT", isToggle = true,
       desc = "Toggle: bots hold for a few seconds after a pull starts (set the time in settings).",
-      onLeft  = function() BB_sendGroup("co ~wait for attack") end },
+      rightDesc = "Force wait at pull off.",
+      onOn  = function() BB_sendGroup("co +wait for attack") end,
+      onOff = function() BB_sendGroup("co -wait for attack") end },
 
     { key = "tankattack", label = "Tank Attack", icon = "Ability_Warrior_ShieldBash",
       binding = "BOTBUTTONS_TANKATTACK",
@@ -217,7 +232,12 @@ local ACTIONS = {
 local actionByKey = {}
 for _, a in ipairs(ACTIONS) do actionByKey[a.key] = a end
 
--- last-pressed indicator -----------------------------------------------------
+-- indicators -----------------------------------------------------------------
+-- The green border means "this toggle is ON as far as the addon knows". It is
+-- NOT read from the server: the client cannot query a bot's strategies, so a
+-- bot changed elsewhere (another addon, the console, apply_bots.py, a relog
+-- onto a recreated bot) can be out of step until the button is pressed again.
+-- One-shot buttons only flash the border briefly as "command sent" feedback.
 local function buttonBorder(b, active)
     if not b or not b.SetBackdropBorderColor then return end
     if active then
@@ -227,25 +247,55 @@ local function buttonBorder(b, active)
     end
 end
 
-local function markPressed(a)
-    if not a.button then return end
-    local wasActive = (O.activeKey == a.key)
-    for _, other in ipairs(ACTIONS) do buttonBorder(other.button, false) end
-    if a.isToggle and wasActive then
-        O.activeKey = nil               -- toggled back off
-    else
-        O.activeKey = a.key
-        buttonBorder(a.button, true)
+local function toggleState(a)
+    return (O.toggles and O.toggles[a.key]) and true or false
+end
+
+local function refreshToggle(a)
+    buttonBorder(a.button, toggleState(a))
+end
+
+-- Flip a toggle, send the matching ABSOLUTE command (never "~"), and light it.
+-- Absolute commands mean a lost sync self-corrects on the next press instead of
+-- compounding the way a "~" toggle does.
+local function setToggle(a, on, send)
+    O.toggles[a.key] = on and true or false
+    if send then
+        local fn = on and a.onOn or a.onOff
+        if fn then fn() end
     end
+    refreshToggle(a)
+end
+
+-- Transient cue for one-shot buttons.
+local function flash(a)
+    local b = a.button
+    if not b then return end
+    buttonBorder(b, true)
+    local function restore()
+        if a.isToggle then refreshToggle(a) else buttonBorder(b, false) end
+    end
+    if C_Timer and C_Timer.After then C_Timer.After(FLASH_TIME, restore) else restore() end
 end
 
 -- Called from Bindings.xml and from button clicks.
 function BotButtons_Fire(key, rightClick)
     local a = actionByKey[key]
     if not a then return end
+
+    if a.isToggle then
+        -- Left-click flips the addon state; right-click forces it off.
+        if rightClick then
+            setToggle(a, false, true)
+        else
+            setToggle(a, not toggleState(a), true)
+        end
+        return
+    end
+
     local fn = rightClick and a.onRight or a.onLeft
     if fn then fn() end
-    if not rightClick and not a.noMark then markPressed(a) end
+    if fn and not a.noMark then flash(a) end
 end
 
 --============================================================================
@@ -301,6 +351,11 @@ BB_buildBar = function()
             GameTooltip:AddLine(a.desc, 0.9, 0.9, 0.9, true)
             if a.rightDesc then
                 GameTooltip:AddLine("|cffa0a0a0Right-click:|r " .. a.rightDesc, 0.8, 0.8, 0.8, true)
+            end
+            if a.isToggle then
+                local state = toggleState(a) and "|cff40ff66ON|r" or "|cffff8080off|r"
+                GameTooltip:AddLine("Addon toggle: " .. state .. "  |cffa0a0a0(this addon's view, not read from the server)|r",
+                                    0.8, 0.8, 0.8, true)
             end
             local key = GetBindingKey and GetBindingKey(a.binding)
             if key then GameTooltip:AddLine("|cffffd100Bound to " .. key .. "|r") end
@@ -577,6 +632,27 @@ local function buildSettings()
         print("|cff33ff99BotButtons|r: sent wait time " .. n .. "s")
     end)
 
+    y = y - 28
+    local resync = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
+    resync:SetSize(160, 22)
+    resync:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+    resync:SetText("Force toggles off (resync)")
+    resync:SetScript("OnClick", function()
+        for _, a in ipairs(ACTIONS) do
+            if a.isToggle then setToggle(a, false, true) end
+        end
+        print("|cff33ff99BotButtons|r: toggles forced off")
+    end)
+    resync:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Force toggles off")
+        GameTooltip:AddLine("Clears this addon's toggle state and sends the matching " ..
+                            "|cffff8080off|r commands, so the bots and the buttons agree again.",
+                            0.9, 0.9, 0.9, true)
+        GameTooltip:Show()
+    end)
+    resync:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     y = y - 32
     local healerLabel = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     healerLabel:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
@@ -640,13 +716,12 @@ local function buildSettings()
     reset:SetPoint("BOTTOMLEFT", settings, "BOTTOMLEFT", 16, 16)
     reset:SetText("Reset defaults")
     reset:SetScript("OnClick", function()
-        for k, v in pairs(DEFAULTS) do
-            if type(v) == "table" then O[k] = { v[1], v[2], v[3], v[4] } else O[k] = v end
-        end
+        for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end
         applyAnchor(); BB_layoutBar(); BB_updateBarVisibility()
         for name, entry in pairs(checks) do entry.frame:SetChecked(entry.getter()) end
         for name, entry in pairs(sliders) do entry.frame:SetValue(entry.getter()) end
         healerEdit:SetText(O.healerName or "")
+        for _, a in ipairs(ACTIONS) do if a.isToggle then refreshToggle(a) end end
         BB_refreshKeybinds()
         print("|cff33ff99BotButtons|r: defaults restored")
     end)
@@ -677,11 +752,12 @@ f:SetScript("OnEvent", function(_, event, arg1)
         BotButtonsDB.options = BotButtonsDB.options or {}
         O = BotButtonsDB.options
         for k, v in pairs(DEFAULTS) do
-            if O[k] == nil then
-                if type(v) == "table" then O[k] = { v[1], v[2], v[3], v[4] } else O[k] = v end
-            end
+            if O[k] == nil then O[k] = copyTable(v) end
         end
+        O.activeKey = nil               -- drop the old single-slot "last pressed" mark
+        if type(O.toggles) ~= "table" then O.toggles = copyTable(DEFAULTS.toggles) end
         for _, a in ipairs(ACTIONS) do
+            if a.isToggle and O.toggles[a.key] == nil then O.toggles[a.key] = false end
             _G["BINDING_NAME_" .. a.binding] = "BotButtons: " .. a.label
         end
     elseif event == "PLAYER_LOGIN" then
@@ -689,8 +765,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
         applyAnchor()
         BB_layoutBar()
         BB_updateBarVisibility()
-        if O.activeKey and buttonByKey[O.activeKey] then
-            buttonBorder(buttonByKey[O.activeKey], true)   -- restore last-pressed indicator
+        for _, a in ipairs(ACTIONS) do
+            if a.isToggle then refreshToggle(a) end
         end
     elseif event == "UPDATE_BINDINGS" then
         if settings and settings:IsShown() then BB_refreshKeybinds() end
@@ -710,10 +786,9 @@ SlashCmdList["BOTBUTTONS"] = function(msg)
     elseif msg == "hide" then
         O.show = false; BB_updateBarVisibility()
     elseif msg == "reset" then
-        for k, v in pairs(DEFAULTS) do
-            if type(v) == "table" then O[k] = { v[1], v[2], v[3], v[4] } else O[k] = v end
-        end
+        for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end
         applyAnchor(); BB_layoutBar(); BB_updateBarVisibility(); BB_refreshKeybinds()
+        for _, a in ipairs(ACTIONS) do if a.isToggle then refreshToggle(a) end end
     else
         BB_toggleSettings()
     end
