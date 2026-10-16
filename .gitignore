@@ -1,0 +1,8 @@
+# Build / distributable artifacts
+*.zip
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*~
+*.swp

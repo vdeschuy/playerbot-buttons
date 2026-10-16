@@ -1,0 +1,10 @@
+## Interface: 20503
+## X-Min-Interface-Classic: 11400
+## X-Min-Interface-BCC: 20502
+## Title: |cff33ff99Bot|r|cffffd100Buttons|r
+## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
+## Author: Roshkosh
+## Version: 1.1.0
+## SavedVariables: BotButtonsDB
+## DefaultState: Enabled
+BotButtons.lua
