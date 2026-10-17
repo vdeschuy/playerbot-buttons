@@ -2,6 +2,7 @@
   <Binding name="BOTBUTTONS_FOLLOW"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("follow")</Binding>
   <Binding name="BOTBUTTONS_STAY"       header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("stay")</Binding>
   <Binding name="BOTBUTTONS_REGROUP"    header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("regroup")</Binding>
+  <Binding name="BOTBUTTONS_SUMMON"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("summon")</Binding>
   <Binding name="BOTBUTTONS_ATTACK"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("attack")</Binding>
   <Binding name="BOTBUTTONS_PULL"       header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("pull")</Binding>
   <Binding name="BOTBUTTONS_PASSIVE"    header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("passive")</Binding>
@@ -10,5 +11,4 @@
   <Binding name="BOTBUTTONS_TANKATTACK" header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("tankattack")</Binding>
   <Binding name="BOTBUTTONS_MAXDPS"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("maxdps")</Binding>
   <Binding name="BOTBUTTONS_HEALERSTAY" header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("healerstay")</Binding>
-  <Binding name="BOTBUTTONS_SETTINGS"   header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("settings")</Binding>
 </Bindings>

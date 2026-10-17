@@ -177,6 +177,11 @@ local ACTIONS = {
       desc = "Stop attacking and regroup on you (passive + follow).",
       onLeft  = function() BB_sendGroup("flee") end },
 
+    { key = "summon", label = "Summon", icon = "Spell_Arcane_PortalIronForge",
+      binding = "BOTBUTTONS_SUMMON",
+      desc = "Ask the bots to summon you at a meeting stone (the bot must be near one).",
+      onLeft  = function() BB_sendGroup("summon") end },
+
     { key = "attack", label = "Attack", icon = "Ability_Warrior_Charge",
       binding = "BOTBUTTONS_ATTACK",
       desc = "Attack your current target.",
@@ -222,11 +227,6 @@ local ACTIONS = {
       binding = "BOTBUTTONS_HEALERSTAY",
       desc = "Whisper 'stay' to your healer (hold position, keep healing).",
       onLeft  = function() BB_whisperHealer() end },
-
-    { key = "settings", label = "Settings", icon = "INV_Misc_Gear_01",
-      binding = "BOTBUTTONS_SETTINGS", noMark = true,
-      desc = "Open the BotButtons settings window (or type /bb).",
-      onLeft  = function() BB_toggleSettings() end },
 }
 
 local actionByKey = {}
@@ -544,7 +544,8 @@ local function buildSettings()
     end
 
     local function makeSlider(name, label, minv, maxv, step, ticks, getter, setter, y)
-        local WIDTH = 200
+        -- Match the buttons below (160 wide) so the whole left column lines up.
+        local WIDTH = 160
         local s = CreateFrame("Slider", name, settings, "OptionsSliderTemplate")
         s:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
         s:SetWidth(WIDTH)
@@ -553,7 +554,27 @@ local function buildSettings()
         s:SetValueStep(step)
         if s.SetObeyStepOnDrag then s:SetObeyStepOnDrag(true) end
 
-        local text = _G[name .. "Text"]
+        -- The stock template centres the title and anchors LOW/HIGH 4px *outside*
+        -- the frame, which overhangs the column and crowds the dialog edge.
+        -- Re-anchor them so the widget is flush with the checkboxes above and
+        -- the buttons below.
+        local text = s.Text or _G[name .. "Text"]
+        if text then
+            text:ClearAllPoints()
+            text:SetPoint("BOTTOMLEFT", s, "TOPLEFT", 0, 4)
+            text:SetJustifyH("LEFT")
+        end
+        local low  = s.Low  or _G[name .. "Low"]
+        local high = s.High or _G[name .. "High"]
+        if low then
+            low:ClearAllPoints()
+            low:SetPoint("TOPLEFT", s, "BOTTOMLEFT", 0, -2)
+        end
+        if high then
+            high:ClearAllPoints()
+            high:SetPoint("TOPRIGHT", s, "BOTTOMRIGHT", 0, -2)
+        end
+
         local function showValue(v)
             if text then text:SetText(label .. ": |cffffd100" .. fmtVal(v) .. "|r") end
         end
@@ -569,8 +590,8 @@ local function buildSettings()
             end
         end
 
-        if _G[name .. "Low"] then _G[name .. "Low"]:SetText(tostring(minv)) end
-        if _G[name .. "High"] then _G[name .. "High"]:SetText(tostring(maxv)) end
+        if low then low:SetText(tostring(minv)) end
+        if high then high:SetText(tostring(maxv)) end
         s:SetValue(getter())
         s:SetScript("OnValueChanged", function(_, value)
             local v = math.floor(value / step + 0.5) * step
@@ -583,7 +604,7 @@ local function buildSettings()
     end
 
     local optHeader = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    optHeader:SetPoint("TOPLEFT", settings, "TOPLEFT", 20, -54)
+    optHeader:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, -54)
     optHeader:SetText("Options")
 
     local y = -78

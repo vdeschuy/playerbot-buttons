@@ -9,9 +9,10 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 - **Drag** the bar by its grip (left edge) when it is unlocked.
 - **Left-click** a button to fire its command; some have a **right-click** action
   (see the tooltip on each button).
-- **Settings / keybinds:** type `/bb`, or click the gear button. Click a binding
-  box in the window and press the key you want (ESC cancels). The same bindings
-  also appear in the standard **Key Bindings → BotButtons** screen.
+- **Settings / keybinds:** open the window with `/bb` (there is no longer a gear
+  button on the bar). Click a binding box in the window and press the key you
+  want (ESC cancels). The same bindings also appear in the standard
+  **Key Bindings → BotButtons** screen.
 - Slash: `/bb` (open), `/bb lock`, `/bb unlock`, `/bb show`, `/bb hide`, `/bb reset`.
 
 ## Buttons
@@ -21,6 +22,7 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Follow | `/p follow` | `/p flee` (regroup) |
 | Stay | `/p stay` | — |
 | Regroup | `/p flee` (stop attacking + follow) | — |
+| Summon | `/p summon` (meeting stone; bot must be near one) | — |
 | Attack | `/p attack` | — |
 | Pull | `/p pull` | — |
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
@@ -29,7 +31,6 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Tank Attack | `/p tank attack` | — |
 | Max DPS | `/p max dps` | — |
 | Healer Stay | whisper your healer `stay` | — |
-| Settings | open the settings window | — |
 
 `/p` broadcasts to every bot in your group; the melee and healer buttons whisper
 specific bots. The healer's name is configurable in settings.
@@ -63,7 +64,7 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.2.0.zip BotButtons
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.3.0.zip BotButtons
 ```
 
 ## Notes / known limits
@@ -76,8 +77,9 @@ zip -qr ~/Games/wow/tbc/addons/BotButtons-1.2.0.zip BotButtons
   press the button again. One-shot buttons only flash the border for ~0.6 s as
   "command sent" feedback. If things ever drift apart, **Settings → "Force toggles
   off (resync)"** clears the addon state and sends the matching off commands.
-- **Restart the client** (or at least re-login) after installing so the addon
-  loads; new addons are not picked up by `/reload` alone.
+- **First install:** a brand-new addon folder may need a client restart (or a
+  relog) before it appears in the AddOns list; once it is recognised, `/reload`
+  re-reads the files.
 - **Melee Hold** is class-based (warrior/rogue/paladin/shaman/druid) because
   addons cannot read a bot's spec, so a holy paladin or resto shaman counts as
   "melee". Use the whisper-by-name buttons if you need exact targeting.

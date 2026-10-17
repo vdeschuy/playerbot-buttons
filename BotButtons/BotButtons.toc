@@ -4,7 +4,7 @@
 ## Title: |cff33ff99Bot|r|cffffd100Buttons|r
 ## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
 ## Author: Roshkosh
-## Version: 1.2.0
+## Version: 1.3.0
 ## SavedVariables: BotButtonsDB
 ## DefaultState: Enabled
 BotButtons.lua
