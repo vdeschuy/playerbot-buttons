@@ -26,6 +26,8 @@ local DEFAULTS = {
     scale       = 1.0,
     visibleChat = false,
     healerName  = "Healer",
+    tankName    = "Tank",
+    announce    = true,
     waitTime    = 5,
     -- addon-side toggle state (the client cannot read the bots' real strategies)
     toggles     = { passive = false, meleehold = false, wait = false },
@@ -41,7 +43,7 @@ local BORDER_ACTIVE = { 0.25, 0.95, 0.4, 0.9 }  -- toggle-ON / command-sent high
 local FLASH_TIME = 0.6                          -- seconds a one-shot command stays lit
 
 -- forward-declared locals (assigned later) -----------------------------------
-local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer
+local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer, BB_whisperTank
 local BB_buildBar, BB_layoutBar, BB_updateBarVisibility, BB_refreshKeybinds
 local BB_openSettings, BB_toggleSettings, BB_startCapture
 
@@ -156,6 +158,14 @@ BB_whisperHealer = function()
     end
 end
 
+-- Whisper a single command to the tank only. Pull uses this to take the tank
+-- out of "stay" before pulling, otherwise it cannot move to reach the target.
+BB_whisperTank = function(cmd)
+    if O.tankName and O.tankName ~= "" then
+        transport(cmd, "WHISPER", O.tankName)
+    end
+end
+
 --============================================================================
 -- actions (order = order on the bar)
 --============================================================================
@@ -189,8 +199,11 @@ local ACTIONS = {
 
     { key = "pull", label = "Pull", icon = "Ability_Hunter_AimedShot",
       binding = "BOTBUTTONS_PULL",
-      desc = "Pull your current target (tank).",
-      onLeft  = function() BB_sendGroup("pull") end },
+      desc = "Pull your current target (tank). Whispers 'follow' to the tank first so it can move if it was holding position.",
+      onLeft  = function()
+          BB_whisperTank("follow")
+          BB_sendGroup("pull")
+      end },
 
     { key = "passive", label = "Stop / Go", icon = "Spell_Shadow_SoulLeech_1",
       binding = "BOTBUTTONS_PASSIVE", isToggle = true,
@@ -278,6 +291,15 @@ local function flash(a)
     if C_Timer and C_Timer.After then C_Timer.After(FLASH_TIME, restore) else restore() end
 end
 
+-- Chat-frame record of what was pressed (private: nothing goes to a channel).
+local function announce(a, rightClick, state)
+    if O.announce == false then return end
+    local text = a.label
+    if rightClick then text = text .. " (right-click)" end
+    if state then text = text .. " -> " .. state end
+    print("|cff33ff99BotButtons|r: " .. text)
+end
+
 -- Called from Bindings.xml and from button clicks.
 function BotButtons_Fire(key, rightClick)
     local a = actionByKey[key]
@@ -290,12 +312,14 @@ function BotButtons_Fire(key, rightClick)
         else
             setToggle(a, not toggleState(a), true)
         end
+        announce(a, rightClick, toggleState(a) and "ON" or "off")
         return
     end
 
     local fn = rightClick and a.onRight or a.onLeft
     if fn then fn() end
     if fn and not a.noMark then flash(a) end
+    if fn then announce(a, rightClick) end
 end
 
 --============================================================================
@@ -631,6 +655,11 @@ local function buildSettings()
         function() return O.visibleChat end,
         function(v) O.visibleChat = v end, y)
 
+    y = y - 24
+    makeCheck("BBSettingsAnnounce", "Announce presses in chat",
+        function() return O.announce end,
+        function(v) O.announce = v end, y)
+
     y = y - 48
     makeSlider("BBSettingsScale", "Bar scale", 0.6, 1.6, 0.05, 5,
         function() return O.scale end,
@@ -692,6 +721,20 @@ local function buildSettings()
         self:ClearFocus()
     end)
 
+    y = y - 24
+    local tankLabel = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tankLabel:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
+    tankLabel:SetText("Tank bot name:")
+    local tankEdit = CreateFrame("EditBox", "BBTankNameEdit", settings, "InputBoxTemplate")
+    tankEdit:SetSize(150, 20)
+    tankEdit:SetPoint("LEFT", tankLabel, "RIGHT", 8, 0)
+    tankEdit:SetAutoFocus(false)
+    tankEdit:SetText(O.tankName or "")
+    tankEdit:SetScript("OnEnterPressed", function(self)
+        O.tankName = self:GetText()
+        self:ClearFocus()
+    end)
+
     -- keybindings ---------------------------------------------------------
     local kbHeader = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     kbHeader:SetPoint("TOPLEFT", settings, "TOPLEFT", 300, -54)
@@ -746,6 +789,7 @@ local function buildSettings()
         for name, entry in pairs(checks) do entry.frame:SetChecked(entry.getter()) end
         for name, entry in pairs(sliders) do entry.frame:SetValue(entry.getter()) end
         healerEdit:SetText(O.healerName or "")
+        tankEdit:SetText(O.tankName or "")
         for _, a in ipairs(ACTIONS) do if a.isToggle then refreshToggle(a) end end
         BB_refreshKeybinds()
         print("|cff33ff99BotButtons|r: defaults restored")
@@ -810,6 +854,9 @@ SlashCmdList["BOTBUTTONS"] = function(msg)
         O.show = true; BB_updateBarVisibility()
     elseif msg == "hide" then
         O.show = false; BB_updateBarVisibility()
+    elseif msg == "announce" then
+        O.announce = not O.announce
+        print("|cff33ff99BotButtons|r: chat announce " .. (O.announce and "on" or "off"))
     elseif msg == "reset" then
         for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end
         applyAnchor(); BB_layoutBar(); BB_updateBarVisibility(); BB_refreshKeybinds()

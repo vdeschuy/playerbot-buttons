@@ -13,7 +13,7 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
   button on the bar). Click a binding box in the window and press the key you
   want (ESC cancels). The same bindings also appear in the standard
   **Key Bindings → BotButtons** screen.
-- Slash: `/bb` (open), `/bb lock`, `/bb unlock`, `/bb show`, `/bb hide`, `/bb reset`.
+- Slash: `/bb` (open), `/bb lock`, `/bb unlock`, `/bb show`, `/bb hide`, `/bb announce`, `/bb reset`.
 
 ## Buttons
 
@@ -24,7 +24,7 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Regroup | `/p flee` (stop attacking + follow) | — |
 | Summon | teleport the group's bots to you (`/p summon`) | — |
 | Attack | `/p attack` | — |
-| Pull | `/p pull` | — |
+| Pull | whisper `follow` to your tank, then `/p pull` | — |
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
 | Melee Hold | toggle melee `passive` (`co +passive` / `co -passive`) | release melee (`co -passive`) |
 | Wait at Pull | toggle `wait for attack` (`co +wait for attack` / `co -wait for attack`) | force off (`co -wait for attack`) |
@@ -32,8 +32,18 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Max DPS | `/p max dps` | — |
 | Healer Stay | whisper your healer `stay` | — |
 
-`/p` broadcasts to every bot in your group; the melee and healer buttons whisper
-specific bots. The healer's name is configurable in settings.
+`/p` broadcasts to every bot in your group; the pull, melee and healer buttons
+whisper specific bots. The healer's and tank's names are configurable in settings.
+
+**Pull whispers `follow` to the tank first.** A bot that is holding position
+(`stay`) will not move, so it never walks to its pull target. `follow` clears that
+and the pull then works; the bot walks back to where it started afterwards.
+
+**Every press is announced in chat** (e.g. `BotButtons: Regroup`, or
+`BotButtons: Stop / Go -> ON` for the toggles), so the chat log doubles as a record
+of what you pressed. It is a private local message — nothing is sent to any
+channel. Turn it off with the *Announce presses in chat* checkbox or
+`/bb announce`.
 
 `summon` pulls the bots to you. On a GM account — which this server's `ADMIN`
 account is — it works anywhere; otherwise (no `AiPlayerbot.NonGmFreeSummon`) it
@@ -69,7 +79,7 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.3.1.zip BotButtons
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.4.0.zip BotButtons
 ```
 
 ## Notes / known limits
