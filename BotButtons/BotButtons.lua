@@ -201,8 +201,12 @@ local ACTIONS = {
       binding = "BOTBUTTONS_PULL",
       desc = "Pull your current target (tank). Whispers 'follow' to the tank first so it can move if it was holding position.",
       onLeft  = function()
+          -- A bot holding position ("stay") will not walk to its pull target, so
+          -- take the tank out of stay first. Small gap so the follow lands before
+          -- the pull is evaluated.
           BB_whisperTank("follow")
-          BB_sendGroup("pull")
+          local function pull() BB_sendGroup("pull") end
+          if C_Timer and C_Timer.After then C_Timer.After(0.4, pull) else pull() end
       end },
 
     { key = "passive", label = "Stop / Go", icon = "Spell_Shadow_SoulLeech_1",

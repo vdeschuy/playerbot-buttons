@@ -37,7 +37,8 @@ whisper specific bots. The healer's and tank's names are configurable in setting
 
 **Pull whispers `follow` to the tank first.** A bot that is holding position
 (`stay`) will not move, so it never walks to its pull target. `follow` clears that
-and the pull then works; the bot walks back to where it started afterwards.
+and the pull then works; the bot walks back to where it started afterwards. The
+pull goes out ~0.4 s later, so the follow cannot race it.
 
 **Every press is announced in chat** (e.g. `BotButtons: Regroup`, or
 `BotButtons: Stop / Go -> ON` for the toggles), so the chat log doubles as a record
@@ -79,7 +80,7 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.4.0.zip BotButtons
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.4.1.zip BotButtons
 ```
 
 ## Notes / known limits
