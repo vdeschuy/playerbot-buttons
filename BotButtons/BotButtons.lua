@@ -152,17 +152,45 @@ BB_setMeleePassive = function(on)
     end
 end
 
+-- Names of the group (lower-cased) so a stale tank/healer name can be caught
+-- before whispering somebody who is not there. The client answers that with
+-- "player X is not found", which is puzzling when the rest of the command - the
+-- group-wide pull - still works.
+local function groupNames()
+    local set = {}
+    local prefix = UnitInRaid("player") and "raid" or "party"
+    for i = 1, GetNumGroupMembers() do
+        local name = UnitName(prefix .. i)
+        if name then set[string.lower(name)] = true end
+    end
+    return set
+end
+
+local warnedAt = 0
+local function inGroupOrWarn(label, name)
+    if groupNames()[string.lower(name)] then return true end
+    local now = GetTime and GetTime() or 0
+    if now - warnedAt > 60 then
+        warnedAt = now
+        print("|cff33ff99BotButtons|r: " .. label .. " '" .. name ..
+              "' is not in your group - change it in /bb")
+    end
+    return false
+end
+
 BB_whisperHealer = function()
-    if O.healerName and O.healerName ~= "" then
-        transport("stay", "WHISPER", O.healerName)
+    local name = O.healerName
+    if name and name ~= "" and inGroupOrWarn("healer name", name) then
+        transport("stay", "WHISPER", name)
     end
 end
 
 -- Whisper a single command to the tank only. Pull uses this to take the tank
 -- out of "stay" before pulling, otherwise it cannot move to reach the target.
 BB_whisperTank = function(cmd)
-    if O.tankName and O.tankName ~= "" then
-        transport(cmd, "WHISPER", O.tankName)
+    local name = O.tankName
+    if name and name ~= "" and inGroupOrWarn("tank name", name) then
+        transport(cmd, "WHISPER", name)
     end
 end
 
@@ -711,6 +739,25 @@ local function buildSettings()
     end)
     resync:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- Name boxes save as you type (and when the focus leaves), not only on
+    -- Enter: typing a new name and clicking away used to leave the old value
+    -- stored, so the whisper went to the previous bot while the panel showed the
+    -- new name. Escape restores the stored name instead of saving the edit.
+    local function bindNameEdit(edit, key)
+        local function commit(self)
+            local text = self:GetText() or ""
+            if strtrim then text = strtrim(text) end
+            if text ~= "" then O[key] = text end
+        end
+        edit:SetScript("OnTextChanged", function(self) commit(self) end)
+        edit:SetScript("OnEditFocusLost", function(self) commit(self) end)
+        edit:SetScript("OnEnterPressed", function(self) commit(self); self:ClearFocus() end)
+        edit:SetScript("OnEscapePressed", function(self)
+            self:SetText(O[key] or "")
+            self:ClearFocus()
+        end)
+    end
+
     y = y - 32
     local healerLabel = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     healerLabel:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
@@ -720,10 +767,7 @@ local function buildSettings()
     healerEdit:SetPoint("LEFT", healerLabel, "RIGHT", 8, 0)
     healerEdit:SetAutoFocus(false)
     healerEdit:SetText(O.healerName or "")
-    healerEdit:SetScript("OnEnterPressed", function(self)
-        O.healerName = self:GetText()
-        self:ClearFocus()
-    end)
+    bindNameEdit(healerEdit, "healerName")
 
     y = y - 24
     local tankLabel = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -734,10 +778,7 @@ local function buildSettings()
     tankEdit:SetPoint("LEFT", tankLabel, "RIGHT", 8, 0)
     tankEdit:SetAutoFocus(false)
     tankEdit:SetText(O.tankName or "")
-    tankEdit:SetScript("OnEnterPressed", function(self)
-        O.tankName = self:GetText()
-        self:ClearFocus()
-    end)
+    bindNameEdit(tankEdit, "tankName")
 
     -- keybindings ---------------------------------------------------------
     local kbHeader = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -849,7 +890,8 @@ end)
 SLASH_BOTBUTTONS1 = "/bb"
 SLASH_BOTBUTTONS2 = "/botbuttons"
 SlashCmdList["BOTBUTTONS"] = function(msg)
-    msg = string.lower(msg or "")
+    local raw = msg or ""
+    msg = string.lower(raw)
     if msg == "lock" then
         O.locked = true; BB_layoutBar()
     elseif msg == "unlock" then
@@ -865,6 +907,18 @@ SlashCmdList["BOTBUTTONS"] = function(msg)
         for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end
         applyAnchor(); BB_layoutBar(); BB_updateBarVisibility(); BB_refreshKeybinds()
         for _, a in ipairs(ACTIONS) do if a.isToggle then refreshToggle(a) end end
+    elseif msg:match("^tank%s") or msg:match("^healer%s") or msg == "tank" or msg == "healer" then
+        -- /bb tank Tanky  (also handy when the name box is fiddly)
+        local key, value = raw:match("^(%a+)%s*(.*)$")
+        key = (key == "tank") and "tankName" or "healerName"
+        value = strtrim and strtrim(value) or value
+        if value ~= "" then
+            O[key] = value
+            local edit = _G[(key == "tankName") and "BBTankNameEdit" or "BBHealerNameEdit"]
+            if edit then edit:SetText(value) end
+        end
+        print("|cff33ff99BotButtons|r: " .. ((key == "tankName") and "tank" or "healer") ..
+              " bot name = '" .. (O[key] or "") .. "'")
     else
         BB_toggleSettings()
     end

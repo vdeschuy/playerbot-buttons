@@ -13,7 +13,8 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
   button on the bar). Click a binding box in the window and press the key you
   want (ESC cancels). The same bindings also appear in the standard
   **Key Bindings → BotButtons** screen.
-- Slash: `/bb` (open), `/bb lock`, `/bb unlock`, `/bb show`, `/bb hide`, `/bb announce`, `/bb reset`.
+- Slash: `/bb` (open), `/bb lock`, `/bb unlock`, `/bb show`, `/bb hide`, `/bb announce`, `/bb reset`,
+  `/bb tank <name>` and `/bb healer <name>` (set a bot name from chat).
 
 ## Buttons
 
@@ -33,7 +34,13 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Healer Stay | whisper your healer `stay` | — |
 
 `/p` broadcasts to every bot in your group; the pull, melee and healer buttons
-whisper specific bots. The healer's and tank's names are configurable in settings.
+whisper specific bots. The healer's and tank's names are configurable in settings
+(the boxes save **as you type**, or use `/bb tank <name>` / `/bb healer <name>`).
+
+If a name is not in your group, the whisper is skipped and a one-line hint is
+printed instead - otherwise the client answers a whisper to a player who is not
+there with "player X is not found", which is confusing when the group-wide part
+of the command (the pull) still works.
 
 **Pull whispers `follow` to the tank first.** A bot that is holding position
 (`stay`) will not move, so it never walks to its pull target. `follow` clears that
@@ -80,7 +87,7 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.4.1.zip BotButtons
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.4.2.zip BotButtons
 ```
 
 ## Notes / known limits
