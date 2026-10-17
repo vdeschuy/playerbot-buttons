@@ -189,12 +189,13 @@ local events = {
     "UPDATE_BONUS_ACTIONBAR",
     "UPDATE_SHAPESHIFT_FORM",
     "PET_BAR_UPDATE",
-    "PLAYER_SPECIALIZATION_CHANGED",
 }
 
 local frame = CreateFrame("Frame")
 for _, event in ipairs(events) do
-    frame:RegisterEvent(event)
+    -- pcall: registering an unknown event name throws, and an uncaught error
+    -- here would abort the rest of the file. Never let that take the addon down.
+    pcall(frame.RegisterEvent, frame, event)
 end
 frame:SetScript("OnEvent", ApplyToAll)
 
