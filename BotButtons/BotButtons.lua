@@ -179,7 +179,7 @@ local ACTIONS = {
 
     { key = "summon", label = "Summon", icon = "Spell_Arcane_PortalIronForge",
       binding = "BOTBUTTONS_SUMMON",
-      desc = "Ask the bots to summon you at a meeting stone (the bot must be near one).",
+      desc = "Teleport every bot in your group to you.",
       onLeft  = function() BB_sendGroup("summon") end },
 
     { key = "attack", label = "Attack", icon = "Ability_Warrior_Charge",
@@ -525,12 +525,16 @@ local function buildSettings()
     local close = CreateFrame("Button", "BotButtonsCloseButton", settings, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", settings, "TOPRIGHT", -6, -6)
 
+    -- Left content margin. The key-bind column on the right ends 38px short of
+    -- the frame edge, so match that here (16 sat too close to the dialog border).
+    local PAD = 38
+
     local checks = {}
     local sliders = {}
 
     local function makeCheck(name, label, getter, setter, y)
         local cb = CreateFrame("CheckButton", name, settings, "InterfaceOptionsCheckButtonTemplate")
-        cb:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+        cb:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
         cb.Text:SetText(label)
         cb:SetChecked(getter())
         cb:SetScript("OnClick", function(self) setter(self:GetChecked() and true or false) end)
@@ -547,7 +551,7 @@ local function buildSettings()
         -- Match the buttons below (160 wide) so the whole left column lines up.
         local WIDTH = 160
         local s = CreateFrame("Slider", name, settings, "OptionsSliderTemplate")
-        s:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+        s:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
         s:SetWidth(WIDTH)
         s:SetHeight(16)
         s:SetMinMaxValues(minv, maxv)
@@ -604,7 +608,7 @@ local function buildSettings()
     end
 
     local optHeader = settings:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    optHeader:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, -54)
+    optHeader:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, -54)
     optHeader:SetText("Options")
 
     local y = -78
@@ -645,7 +649,7 @@ local function buildSettings()
     y = y - 30
     local sendWait = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
     sendWait:SetSize(160, 22)
-    sendWait:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+    sendWait:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
     sendWait:SetText("Send wait time to bots")
     sendWait:SetScript("OnClick", function()
         local n = math.floor(O.waitTime)
@@ -656,7 +660,7 @@ local function buildSettings()
     y = y - 28
     local resync = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
     resync:SetSize(160, 22)
-    resync:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+    resync:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
     resync:SetText("Force toggles off (resync)")
     resync:SetScript("OnClick", function()
         for _, a in ipairs(ACTIONS) do
@@ -676,7 +680,7 @@ local function buildSettings()
 
     y = y - 32
     local healerLabel = settings:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    healerLabel:SetPoint("TOPLEFT", settings, "TOPLEFT", 16, y)
+    healerLabel:SetPoint("TOPLEFT", settings, "TOPLEFT", PAD, y)
     healerLabel:SetText("Healer bot name:")
     local healerEdit = CreateFrame("EditBox", "BBHealerNameEdit", settings, "InputBoxTemplate")
     healerEdit:SetSize(150, 20)
@@ -734,7 +738,7 @@ local function buildSettings()
 
     local reset = CreateFrame("Button", nil, settings, "UIPanelButtonTemplate")
     reset:SetSize(130, 22)
-    reset:SetPoint("BOTTOMLEFT", settings, "BOTTOMLEFT", 16, 16)
+    reset:SetPoint("BOTTOMLEFT", settings, "BOTTOMLEFT", PAD, 16)
     reset:SetText("Reset defaults")
     reset:SetScript("OnClick", function()
         for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end

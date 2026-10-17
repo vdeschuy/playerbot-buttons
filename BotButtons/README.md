@@ -22,7 +22,7 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Follow | `/p follow` | `/p flee` (regroup) |
 | Stay | `/p stay` | — |
 | Regroup | `/p flee` (stop attacking + follow) | — |
-| Summon | `/p summon` (meeting stone; bot must be near one) | — |
+| Summon | teleport the group's bots to you (`/p summon`) | — |
 | Attack | `/p attack` | — |
 | Pull | `/p pull` | — |
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
@@ -34,6 +34,11 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 
 `/p` broadcasts to every bot in your group; the melee and healer buttons whisper
 specific bots. The healer's name is configurable in settings.
+
+`summon` pulls the bots to you. On a GM account — which this server's `ADMIN`
+account is — it works anywhere; otherwise (no `AiPlayerbot.NonGmFreeSummon`) it
+falls back to a meeting stone: bots to you if a stone is near you, or you to a bot
+if a stone is near it.
 
 The three toggles (Stop/Go, Melee Hold, Wait at Pull) send **absolute `+`/`-`
 commands** driven by the addon's own toggle state, not `~`. An addon cannot read a
@@ -64,7 +69,7 @@ zip into the shared addon folder with:
 
 ```sh
 cd ~/Games/wow/addons
-zip -qr ~/Games/wow/tbc/addons/BotButtons-1.3.0.zip BotButtons
+zip -qr ~/Games/wow/tbc/addons/BotButtons-1.3.1.zip BotButtons
 ```
 
 ## Notes / known limits
