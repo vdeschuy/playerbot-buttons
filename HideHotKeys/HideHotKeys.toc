@@ -1,0 +1,8 @@
+## Interface: 20503
+## Title: |cff33ff99Hide|rHotKeys
+## Notes: Hides keybind text and macro names on all action buttons. Type /hhk for help.
+## Author: vincent
+## Version: 1.0.0
+## SavedVariablesPerCharacter: HideHotKeysDB
+## DefaultState: Enabled
+HideHotKeys.lua
