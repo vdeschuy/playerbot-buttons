@@ -29,13 +29,14 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
 | Melee Hold | toggle melee `passive` (`co +passive` / `co -passive`) | release melee (`co -passive`) |
 | Wait at Pull | toggle `wait for attack` (`co +wait for attack` / `co -wait for attack`) | force off (`co -wait for attack`) |
-| Tank Attack | `/p tank attack` | — |
+| Tank Attack | whisper your tank `tank attack`, wait for its reply, then whisper `attack` | — |
 | Max DPS | `/p max dps` | — |
 | Healer Stay | whisper your healer `stay` | — |
 
-`/p` broadcasts to every bot in your group; the pull, melee and healer buttons
-whisper specific bots. The healer's and tank's names are configurable in settings
-(the boxes save **as you type**, or use `/bb tank <name>` / `/bb healer <name>`).
+`/p` broadcasts to every bot in your group; the pull, tank-attack, melee and
+healer buttons whisper specific bots. The healer's and tank's names are
+configurable in settings (the boxes save **as you type**, or use `/bb tank <name>`
+/ `/bb healer <name>`).
 
 If a name is not in your group, the whisper is skipped and a one-line hint is
 printed instead - otherwise the client answers a whisper to a player who is not
@@ -55,6 +56,14 @@ follow shortcut always replies to the requester (after the stay is already gone)
 so the answer is a reliable "ready" signal. If the tank stays silent (stale name,
 another player's bot, `silent` bots, or a rate-limited reply) the pull still goes
 out after a 1.5 s fallback.
+
+**Tank Attack is a tank-only attack.** It tells your tank to drop `passive` and
+*then* attack your current target, so out of combat the tank actually runs into
+range instead of only engaging something that walks into it. It has to be two
+steps because `attack` is suppressed while the bot is `passive`, and they use the
+same answer-then-act handshake as the pull so the `attack` cannot arrive before
+`passive` is gone. Only your configured tank is addressed; with no usable tank
+name the plain group `tank attack` (drop passive) is sent instead.
 
 **Every press is announced in chat** (e.g. `BotButtons: Regroup`, or
 `BotButtons: Stop / Go -> ON` for the toggles), so the chat log doubles as a record

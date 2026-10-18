@@ -43,7 +43,7 @@ local BORDER_ACTIVE = { 0.25, 0.95, 0.4, 0.9 }  -- toggle-ON / command-sent high
 local FLASH_TIME = 0.6                          -- seconds a one-shot command stays lit
 
 -- forward-declared locals (assigned later) -----------------------------------
-local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer, BB_whisperTank, BB_pull
+local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer, BB_whisperTank, BB_pull, BB_tankAttack
 local BB_buildBar, BB_layoutBar, BB_updateBarVisibility, BB_refreshKeybinds
 local BB_openSettings, BB_toggleSettings, BB_startCapture
 
@@ -194,60 +194,83 @@ BB_whisperTank = function(cmd)
     end
 end
 
--- Pull's ordering problem.
+-- Ordered command pairs for the tank.
 --
--- A bot only runs the chat commands it has queued on its own AI tick, and it
--- does not even look at the queue while it is busy finishing another action.
--- So "follow" (which clears the tank's "stay") and the group-wide "pull" can
--- end up being handled on the same tick, where the two are evaluated together
--- with no ordering guarantee: the tank can pull before the stay is cleared and
--- the pull silently does nothing. That is why a fixed "send follow, wait a
--- little, send pull" delay only mostly works - the delay cannot know whether
--- the tank actually processed the follow yet.
+-- Pull and Tank Attack both need two commands where the first must land before
+-- the second. A bot only runs the chat commands it has queued on its own AI
+-- tick, and it does not even look at the queue while it is busy finishing
+-- another action, so two commands sent close together can end up being handled
+-- on the same tick with no ordering guarantee: the tank would pull before its
+-- "stay" is cleared, or attack while still "passive" (which suppresses the
+-- attack), and the button silently does nothing. That is why a fixed "send X,
+-- wait a little, send Y" delay only mostly works - the delay cannot know when
+-- the tank actually processed X.
 --
--- Instead we wait for the tank to acknowledge the follow. The follow shortcut
--- always whispers back to the requester, and it does so after it has cleared
--- stay, so once the reply arrives the tank is ready to pull. A timeout covers
--- a silent tank (wrong name, another player's bot, "silent" bots, or a reply
--- the server rate-limits): the strategy change still happens, we just did not
--- hear about it.
-local PULL_ACK_TIMEOUT = 1.5                    -- seconds to wait for the tank
+-- Instead we wait for the tank to answer. The tank shortcuts whisper back to
+-- the requester, and they do so after they have applied the change, so the
+-- reply is a real "ready" signal. A timeout covers a silent tank (wrong name,
+-- another player's bot, "silent" bots, or a reply the server rate-limits): the
+-- change still happens, we just did not hear about it.
+local TANK_ACK_TIMEOUT = 1.5                    -- seconds to wait for the tank
 
-local pullWaitName                              -- tank we are waiting on, or nil
-local pullWaitSeq = 0                           -- invalidates stale replies/timeouts
+local tankWaitName                              -- tank we are waiting on, or nil
+local tankWaitSeq = 0                           -- invalidates stale replies/timeouts
+local tankWaitThen                              -- runs once the tank has answered
 
-local function pullFinish(seq)
-    if seq ~= pullWaitSeq or pullWaitName == nil then return end
-    pullWaitName = nil
-    BB_sendGroup("pull")
+local function tankAnswer(seq)
+    if seq ~= tankWaitSeq or tankWaitName == nil then return end
+    local thenDo = tankWaitThen
+    tankWaitName, tankWaitThen = nil, nil
+    if thenDo then thenDo() end
 end
 
-BB_pull = function()
+-- Whisper `first` to the tank and run `thenDo` once it answers. Returns false
+-- (and sends nothing) when there is no usable tank name, so the caller can
+-- fall back to a plain group command.
+local function tankThen(first, thenDo)
     local name = O.tankName
     if not name or name == "" or not inGroupOrWarn("tank name", name) then
-        -- Nothing to unwedge: pull straight away.
-        BB_sendGroup("pull")
-        return
+        return false
     end
 
-    pullWaitSeq = pullWaitSeq + 1
-    local seq = pullWaitSeq
-    pullWaitName = string.lower(name)
+    tankWaitSeq = tankWaitSeq + 1
+    local seq = tankWaitSeq
+    tankWaitName = string.lower(name)
+    tankWaitThen = thenDo
 
-    BB_whisperTank("follow")
+    BB_whisperTank(first)
 
     if C_Timer and C_Timer.After then
-        C_Timer.After(PULL_ACK_TIMEOUT, function() pullFinish(seq) end)
+        C_Timer.After(TANK_ACK_TIMEOUT, function() tankAnswer(seq) end)
     else
-        pullFinish(seq)
+        tankAnswer(seq)
+    end
+    return true
+end
+
+-- Any whisper from the tank means the command has been handled, so the follow-up
+-- can go out at once.
+local function tankAck(sender)
+    if tankWaitName and sender and string.lower(sender) == tankWaitName then
+        tankAnswer(tankWaitSeq)
     end
 end
 
--- Any whisper from the tank means the follow has been handled, so the stay is
--- already gone and the group pull can go out at once.
-local function pullAck(sender)
-    if pullWaitName and sender and string.lower(sender) == pullWaitName then
-        pullFinish(pullWaitSeq)
+-- Pull: take the tank out of "stay" (it will not walk to its pull target while
+-- holding position), then have the whole group pull. Without a tank to prepare,
+-- the group pull still goes out on its own.
+BB_pull = function()
+    if not tankThen("follow", function() BB_sendGroup("pull") end) then
+        BB_sendGroup("pull")
+    end
+end
+
+-- Tank Attack: the tank drops "passive" and then attacks your current target,
+-- which walks it into range when the fight has not started yet. "attack" alone
+-- is suppressed while passive, hence the two steps; only the tank is addressed.
+BB_tankAttack = function()
+    if not tankThen("tank attack", function() BB_whisperTank("attack") end) then
+        BB_sendGroup("tank attack")
     end
 end
 
@@ -310,8 +333,8 @@ local ACTIONS = {
 
     { key = "tankattack", label = "Tank Attack", icon = "Ability_Warrior_ShieldBash",
       binding = "BOTBUTTONS_TANKATTACK",
-      desc = "Tank drops passive and engages.",
-      onLeft  = function() BB_sendGroup("tank attack") end },
+      desc = "Whisper your tank: drop passive and attack your target (runs into range when the fight has not started).",
+      onLeft  = function() BB_tankAttack() end },
 
     { key = "maxdps", label = "Max DPS", icon = "Spell_Fire_Fireball02",
       binding = "BOTBUTTONS_MAXDPS",
@@ -936,7 +959,7 @@ f:SetScript("OnEvent", function(_, event, arg1, arg2)
     elseif event == "UPDATE_BINDINGS" then
         if settings and settings:IsShown() then BB_refreshKeybinds() end
     elseif event == "CHAT_MSG_WHISPER" then
-        pullAck(arg2)               -- arg1 = text, arg2 = sender
+        tankAck(arg2)               -- arg1 = text, arg2 = sender
     end
 end)
 
