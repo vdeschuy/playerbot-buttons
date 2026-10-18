@@ -43,7 +43,7 @@ local BORDER_ACTIVE = { 0.25, 0.95, 0.4, 0.9 }  -- toggle-ON / command-sent high
 local FLASH_TIME = 0.6                          -- seconds a one-shot command stays lit
 
 -- forward-declared locals (assigned later) -----------------------------------
-local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer, BB_whisperTank
+local BB_sendGroup, BB_setMeleePassive, BB_whisperHealer, BB_whisperTank, BB_pull
 local BB_buildBar, BB_layoutBar, BB_updateBarVisibility, BB_refreshKeybinds
 local BB_openSettings, BB_toggleSettings, BB_startCapture
 
@@ -194,6 +194,63 @@ BB_whisperTank = function(cmd)
     end
 end
 
+-- Pull's ordering problem.
+--
+-- A bot only runs the chat commands it has queued on its own AI tick, and it
+-- does not even look at the queue while it is busy finishing another action.
+-- So "follow" (which clears the tank's "stay") and the group-wide "pull" can
+-- end up being handled on the same tick, where the two are evaluated together
+-- with no ordering guarantee: the tank can pull before the stay is cleared and
+-- the pull silently does nothing. That is why a fixed "send follow, wait a
+-- little, send pull" delay only mostly works - the delay cannot know whether
+-- the tank actually processed the follow yet.
+--
+-- Instead we wait for the tank to acknowledge the follow. The follow shortcut
+-- always whispers back to the requester, and it does so after it has cleared
+-- stay, so once the reply arrives the tank is ready to pull. A timeout covers
+-- a silent tank (wrong name, another player's bot, "silent" bots, or a reply
+-- the server rate-limits): the strategy change still happens, we just did not
+-- hear about it.
+local PULL_ACK_TIMEOUT = 1.5                    -- seconds to wait for the tank
+
+local pullWaitName                              -- tank we are waiting on, or nil
+local pullWaitSeq = 0                           -- invalidates stale replies/timeouts
+
+local function pullFinish(seq)
+    if seq ~= pullWaitSeq or pullWaitName == nil then return end
+    pullWaitName = nil
+    BB_sendGroup("pull")
+end
+
+BB_pull = function()
+    local name = O.tankName
+    if not name or name == "" or not inGroupOrWarn("tank name", name) then
+        -- Nothing to unwedge: pull straight away.
+        BB_sendGroup("pull")
+        return
+    end
+
+    pullWaitSeq = pullWaitSeq + 1
+    local seq = pullWaitSeq
+    pullWaitName = string.lower(name)
+
+    BB_whisperTank("follow")
+
+    if C_Timer and C_Timer.After then
+        C_Timer.After(PULL_ACK_TIMEOUT, function() pullFinish(seq) end)
+    else
+        pullFinish(seq)
+    end
+end
+
+-- Any whisper from the tank means the follow has been handled, so the stay is
+-- already gone and the group pull can go out at once.
+local function pullAck(sender)
+    if pullWaitName and sender and string.lower(sender) == pullWaitName then
+        pullFinish(pullWaitSeq)
+    end
+end
+
 --============================================================================
 -- actions (order = order on the bar)
 --============================================================================
@@ -227,15 +284,8 @@ local ACTIONS = {
 
     { key = "pull", label = "Pull", icon = "Ability_Hunter_AimedShot",
       binding = "BOTBUTTONS_PULL",
-      desc = "Pull your current target (tank). Whispers 'follow' to the tank first so it can move if it was holding position.",
-      onLeft  = function()
-          -- A bot holding position ("stay") will not walk to its pull target, so
-          -- take the tank out of stay first. Small gap so the follow lands before
-          -- the pull is evaluated.
-          BB_whisperTank("follow")
-          local function pull() BB_sendGroup("pull") end
-          if C_Timer and C_Timer.After then C_Timer.After(0.4, pull) else pull() end
-      end },
+      desc = "Pull your current target (tank). Asks the tank to follow first (so it can move if it was holding position), waits for it to reply, then pulls.",
+      onLeft  = function() BB_pull() end },
 
     { key = "passive", label = "Stop / Go", icon = "Spell_Shadow_SoulLeech_1",
       binding = "BOTBUTTONS_PASSIVE", isToggle = true,
@@ -859,8 +909,9 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("UPDATE_BINDINGS")
+f:RegisterEvent("CHAT_MSG_WHISPER")
 
-f:SetScript("OnEvent", function(_, event, arg1)
+f:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         BotButtonsDB = BotButtonsDB or {}
         BotButtonsDB.options = BotButtonsDB.options or {}
@@ -884,6 +935,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
         end
     elseif event == "UPDATE_BINDINGS" then
         if settings and settings:IsShown() then BB_refreshKeybinds() end
+    elseif event == "CHAT_MSG_WHISPER" then
+        pullAck(arg2)               -- arg1 = text, arg2 = sender
     end
 end)
 

@@ -25,7 +25,7 @@ module (the bot system this server runs). Built for the TBC Classic 2.5.3 client
 | Regroup | `/p flee` (stop attacking + follow) | — |
 | Summon | teleport the group's bots to you (`/p summon`) | — |
 | Attack | `/p attack` | — |
-| Pull | whisper `follow` to your tank, then `/p pull` | — |
+| Pull | whisper `follow` to your tank, wait for its reply, then `/p pull` | — |
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
 | Melee Hold | toggle melee `passive` (`co +passive` / `co -passive`) | release melee (`co -passive`) |
 | Wait at Pull | toggle `wait for attack` (`co +wait for attack` / `co -wait for attack`) | force off (`co -wait for attack`) |
@@ -44,8 +44,17 @@ of the command (the pull) still works.
 
 **Pull whispers `follow` to the tank first.** A bot that is holding position
 (`stay`) will not move, so it never walks to its pull target. `follow` clears that
-and the pull then works; the bot walks back to where it started afterwards. The
-pull goes out ~0.4 s later, so the follow cannot race it.
+and the pull then works; the bot walks back to where it started afterwards.
+
+The pull waits for the tank to **answer** the follow before going out. A bot only
+runs queued chat commands on its own AI tick, and it ignores the queue while it is
+busy with another action, so a "follow" and a "pull" that arrive close together
+can be handled on the same tick with no ordering guarantee - the tank could pull
+before the stay was cleared, which is why a fixed delay only mostly worked. The
+follow shortcut always replies to the requester (after the stay is already gone),
+so the answer is a reliable "ready" signal. If the tank stays silent (stale name,
+another player's bot, `silent` bots, or a rate-limited reply) the pull still goes
+out after a 1.5 s fallback.
 
 **Every press is announced in chat** (e.g. `BotButtons: Regroup`, or
 `BotButtons: Stop / Go -> ON` for the toggles), so the chat log doubles as a record
