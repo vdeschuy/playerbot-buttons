@@ -86,11 +86,19 @@ local function show(frame, visible)
     if visible then frame:Show() else frame:Hide() end
 end
 
--- deep-ish copy so DEFAULTS tables (arrays like `point`, maps like `toggles`)
+-- Deep-ish copy so DEFAULTS tables (arrays like `point`, maps like `toggles`)
 -- can be restored without sharing references.
+--
+-- It has to accept scalars: the defaults loop calls it for every missing key,
+-- including `show = true` and `scale = 1.0`. Without the type guard, `pairs(true)`
+-- raised "bad argument #1 to 'pairs' (table expected, got boolean)" and aborted
+-- the whole ADDON_LOADED handler, leaving the option table half-filled.
 local function copyTable(t)
+    if type(t) ~= "table" then return t end
     local out = {}
-    for k, v in pairs(t) do out[k] = (type(v) == "table") and copyTable(v) or v end
+    for k, v in pairs(t) do
+        if type(v) == "table" then out[k] = copyTable(v) else out[k] = v end
+    end
     return out
 end
 

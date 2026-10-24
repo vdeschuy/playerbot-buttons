@@ -44,7 +44,7 @@ Copy `BotButtons.lua` and `Bindings.xml` into
 ## Title: |cff33ff99Bot|r|cffffd100Buttons|r
 ## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
 ## Author: Roshkosh
-## Version: 1.4.6
+## Version: 1.4.7
 ## SavedVariables: BotButtonsDB
 ## DefaultState: Enabled
 
