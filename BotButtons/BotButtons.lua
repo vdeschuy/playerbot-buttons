@@ -1,6 +1,6 @@
 --[[============================================================================
   BotButtons - draggable, keybindable quick-command buttons for cmangos/playerbots
-  Client: WoW Classic TBC 2.5.3 (Interface 20503)
+  Clients: Classic Era 1.14.x, TBC 2.5.x, WotLK 3.4.3
 
   A movable row of buttons. Left-click sends a bot command; some buttons also
   have a right-click action. Every button can be key-bound in this addon's
@@ -35,7 +35,7 @@ local DEFAULTS = {
 }
 
 -- class-based (spec is not exposed to addons); used by "Melee Hold"
-local MELEE_CLASSES = { WARRIOR = true, ROGUE = true, PALADIN = true, SHAMAN = true, DRUID = true }
+local MELEE_CLASSES = { WARRIOR = true, ROGUE = true, PALADIN = true, SHAMAN = true, DRUID = true, DEATHKNIGHT = true }
 
 -- button look
 local BORDER_ALPHA = 0.28                       -- normal border opacity (subtle)

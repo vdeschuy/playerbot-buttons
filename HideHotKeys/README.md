@@ -28,8 +28,10 @@ for the **WoW Classic TBC 2.5.3** client (`## Interface: 20503`).
 Settings are stored per character in `HideHotKeysDB`
 (`## SavedVariablesPerCharacter`).
 
-## Development
+## Install and development
 
-Part of the `addons` monorepo (`../README.md`). The client loads it via
-`clients/tbc-2.5.3/_classic_/Interface/AddOns/HideHotKeys -> ../../../../../addons/HideHotKeys`.
-Edit `HideHotKeys.lua`, then `/reload`.
+Copy the `HideHotKeys/` folder into the client's `Interface/AddOns/`.
+For development, a symlink from the client to this folder is optional.
+
+Part of the `addons` monorepo (`../README.md`). Edit `HideHotKeys.lua`, then
+`/reload`.
