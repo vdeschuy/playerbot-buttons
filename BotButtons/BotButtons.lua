@@ -94,6 +94,44 @@ local function copyTable(t)
     return out
 end
 
+-- A saved-variables file written by an older build can leave a numeric option
+-- missing, and the option tables are also what the settings sliders read. Every
+-- number handed to a widget is clamped first: 3.4.3's Slider:SetValue() raises
+-- "Usage: self:SetValue(value [, treatAsMouseEvent])" for nil, where 1.14/2.5
+-- quietly ignored it (that showed up as an empty settings window on WotLK).
+local function numberInRange(v, minv, maxv, fallback)
+    if type(v) ~= "number" or v ~= v then v = fallback end
+    if v < minv then return minv end
+    if v > maxv then return maxv end
+    return v
+end
+
+-- Fill in and repair the option table. Safe to call more than once: it runs on
+-- ADDON_LOADED, on PLAYER_LOGIN and again before the settings window is built,
+-- so a half-populated BotButtonsDB can never reach a widget.
+local function ensureOptions()
+    BotButtonsDB = BotButtonsDB or {}
+    BotButtonsDB.options = BotButtonsDB.options or {}
+    O = BotButtonsDB.options
+    for k, v in pairs(DEFAULTS) do
+        if O[k] == nil then O[k] = copyTable(v) end
+    end
+    O.scale    = numberInRange(O.scale, 0.6, 1.6, DEFAULTS.scale)
+    O.size     = numberInRange(O.size, 20, 44, DEFAULTS.size)
+    O.waitTime = numberInRange(O.waitTime, 0, 20, DEFAULTS.waitTime)
+    O.spacing  = numberInRange(O.spacing, 0, 12, DEFAULTS.spacing)
+    if type(O.toggles) ~= "table" then O.toggles = copyTable(DEFAULTS.toggles) end
+    if type(O.point) ~= "table" then O.point = copyTable(DEFAULTS.point) end
+    if type(O.healerName) ~= "string" then O.healerName = DEFAULTS.healerName end
+    if type(O.tankName) ~= "string" then O.tankName = DEFAULTS.tankName end
+    if O.visibleChat == nil then O.visibleChat = DEFAULTS.visibleChat end
+    if O.announce == nil then O.announce = DEFAULTS.announce end
+    if O.show == nil then O.show = DEFAULTS.show end
+    if O.locked == nil then O.locked = DEFAULTS.locked end
+    if O.vertical == nil then O.vertical = DEFAULTS.vertical end
+    return O
+end
+
 local function applyAnchor()
     if not bar then return end
     local p = O.point or DEFAULTS.point
@@ -725,14 +763,17 @@ local function buildSettings()
 
         if low then low:SetText(tostring(minv)) end
         if high then high:SetText(tostring(maxv)) end
-        s:SetValue(getter())
+        local function valueNow()
+            return numberInRange(getter(), minv, maxv, minv)
+        end
+        s:SetValue(valueNow())
         s:SetScript("OnValueChanged", function(_, value)
             local v = math.floor(value / step + 0.5) * step
             setter(v)
             showValue(v)
         end)
-        showValue(getter())
-        sliders[name] = { frame = s, getter = getter }
+        showValue(valueNow())
+        sliders[name] = { frame = s, getter = getter, minv = minv, maxv = maxv }
         return s
     end
 
@@ -905,7 +946,9 @@ local function buildSettings()
         for k, v in pairs(DEFAULTS) do O[k] = copyTable(v) end
         applyAnchor(); BB_layoutBar(); BB_updateBarVisibility()
         for name, entry in pairs(checks) do entry.frame:SetChecked(entry.getter()) end
-        for name, entry in pairs(sliders) do entry.frame:SetValue(entry.getter()) end
+        for name, entry in pairs(sliders) do
+            entry.frame:SetValue(numberInRange(entry.getter(), entry.minv, entry.maxv, entry.minv))
+        end
         healerEdit:SetText(O.healerName or "")
         tankEdit:SetText(O.tankName or "")
         for _, a in ipairs(ACTIONS) do if a.isToggle then refreshToggle(a) end end
@@ -915,6 +958,7 @@ local function buildSettings()
 end
 
 BB_openSettings = function()
+    ensureOptions()
     if not settings then buildSettings() end
     if not capture then buildCapture() end
     settings:Show()
@@ -936,19 +980,14 @@ f:RegisterEvent("CHAT_MSG_WHISPER")
 
 f:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
-        BotButtonsDB = BotButtonsDB or {}
-        BotButtonsDB.options = BotButtonsDB.options or {}
-        O = BotButtonsDB.options
-        for k, v in pairs(DEFAULTS) do
-            if O[k] == nil then O[k] = copyTable(v) end
-        end
+        ensureOptions()
         O.activeKey = nil               -- drop the old single-slot "last pressed" mark
-        if type(O.toggles) ~= "table" then O.toggles = copyTable(DEFAULTS.toggles) end
         for _, a in ipairs(ACTIONS) do
             if a.isToggle and O.toggles[a.key] == nil then O.toggles[a.key] = false end
             _G["BINDING_NAME_" .. a.binding] = "BotButtons: " .. a.label
         end
     elseif event == "PLAYER_LOGIN" then
+        ensureOptions()
         BB_buildBar()
         applyAnchor()
         BB_layoutBar()
@@ -966,6 +1005,7 @@ end)
 SLASH_BOTBUTTONS1 = "/bb"
 SLASH_BOTBUTTONS2 = "/botbuttons"
 SlashCmdList["BOTBUTTONS"] = function(msg)
+    ensureOptions()
     local raw = msg or ""
     msg = string.lower(raw)
     if msg == "lock" then
