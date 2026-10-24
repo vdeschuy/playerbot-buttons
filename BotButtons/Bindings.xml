@@ -1,14 +1,17 @@
 <Bindings>
+  <!-- The header attribute declares the section; only the first binding in a
+       group may carry it, otherwise the client logs
+       "Binding header BOTBUTTONS is defined more than once". -->
   <Binding name="BOTBUTTONS_FOLLOW"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("follow")</Binding>
-  <Binding name="BOTBUTTONS_STAY"       header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("stay")</Binding>
-  <Binding name="BOTBUTTONS_REGROUP"    header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("regroup")</Binding>
-  <Binding name="BOTBUTTONS_SUMMON"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("summon")</Binding>
-  <Binding name="BOTBUTTONS_ATTACK"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("attack")</Binding>
-  <Binding name="BOTBUTTONS_PULL"       header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("pull")</Binding>
-  <Binding name="BOTBUTTONS_PASSIVE"    header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("passive")</Binding>
-  <Binding name="BOTBUTTONS_MELEEHOLD"  header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("meleehold")</Binding>
-  <Binding name="BOTBUTTONS_WAIT"       header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("wait")</Binding>
-  <Binding name="BOTBUTTONS_TANKATTACK" header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("tankattack")</Binding>
-  <Binding name="BOTBUTTONS_MAXDPS"     header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("maxdps")</Binding>
-  <Binding name="BOTBUTTONS_HEALERSTAY" header="BOTBUTTONS" runOnUp="false">BotButtons_Fire("healerstay")</Binding>
+  <Binding name="BOTBUTTONS_STAY"       runOnUp="false">BotButtons_Fire("stay")</Binding>
+  <Binding name="BOTBUTTONS_REGROUP"    runOnUp="false">BotButtons_Fire("regroup")</Binding>
+  <Binding name="BOTBUTTONS_SUMMON"     runOnUp="false">BotButtons_Fire("summon")</Binding>
+  <Binding name="BOTBUTTONS_ATTACK"     runOnUp="false">BotButtons_Fire("attack")</Binding>
+  <Binding name="BOTBUTTONS_PULL"       runOnUp="false">BotButtons_Fire("pull")</Binding>
+  <Binding name="BOTBUTTONS_PASSIVE"    runOnUp="false">BotButtons_Fire("passive")</Binding>
+  <Binding name="BOTBUTTONS_MELEEHOLD"  runOnUp="false">BotButtons_Fire("meleehold")</Binding>
+  <Binding name="BOTBUTTONS_WAIT"       runOnUp="false">BotButtons_Fire("wait")</Binding>
+  <Binding name="BOTBUTTONS_TANKATTACK" runOnUp="false">BotButtons_Fire("tankattack")</Binding>
+  <Binding name="BOTBUTTONS_MAXDPS"     runOnUp="false">BotButtons_Fire("maxdps")</Binding>
+  <Binding name="BOTBUTTONS_HEALERSTAY" runOnUp="false">BotButtons_Fire("healerstay")</Binding>
 </Bindings>

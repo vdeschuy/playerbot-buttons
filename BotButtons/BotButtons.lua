@@ -310,7 +310,7 @@ local ACTIONS = {
       desc = "Pull your current target (tank). Asks the tank to follow first (so it can move if it was holding position), waits for it to reply, then pulls.",
       onLeft  = function() BB_pull() end },
 
-    { key = "passive", label = "Stop / Go", icon = "Spell_Shadow_SoulLeech_1",
+    { key = "passive", label = "Stop / Go", icon = "Spell_Frost_FrostNova",
       binding = "BOTBUTTONS_PASSIVE", isToggle = true,
       desc = "Toggle |cffff8080stop attacking|r on all bots (both states).",
       rightDesc = "Force attack (clear passive).",
@@ -324,7 +324,7 @@ local ACTIONS = {
       onOn  = function() BB_setMeleePassive(true) end,
       onOff = function() BB_setMeleePassive(false) end },
 
-    { key = "wait", label = "Wait at Pull", icon = "Ability_Hunter_Readiness",
+    { key = "wait", label = "Wait at Pull", icon = "Spell_Nature_TimeStop",
       binding = "BOTBUTTONS_WAIT", isToggle = true,
       desc = "Toggle: bots hold for a few seconds after a pull starts (set the time in settings).",
       rightDesc = "Force wait at pull off.",

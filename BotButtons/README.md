@@ -44,7 +44,7 @@ Copy `BotButtons.lua` and `Bindings.xml` into
 ## Title: |cff33ff99Bot|r|cffffd100Buttons|r
 ## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
 ## Author: Roshkosh
-## Version: 1.4.4
+## Version: 1.4.5
 ## SavedVariables: BotButtonsDB
 ## DefaultState: Enabled
 
@@ -147,3 +147,7 @@ restart the client or `/reload`.
   a binding may also trigger its normal action; press the key once and it is
   bound.
 - WotLK 3.4.3 support is experimental. Please report any client-specific issues.
+- Icons are limited to the vanilla texture set (all present in 1.14.2, 2.5.3
+  and 3.4.3). A TBC-only icon such as `Ability_Hunter_Readiness` renders as a
+  green square on Classic, so check a texture exists in `ICONS` for the oldest
+  client you support before using it.
