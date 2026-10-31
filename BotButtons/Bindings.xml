@@ -9,12 +9,18 @@
   <!-- These three use the built-in CLICK action so a real keypress can run a
        secure /targetenemy macro (the Lua in a normal binding cannot target).
        The buttons are created by BotButtons.lua. -->
-  <Binding name="CLICK BotButtonsSecureAttack:LeftButton">-- attack, target first</Binding>
-  <Binding name="CLICK BotButtonsSecurePull:LeftButton">-- pull, target first</Binding>
+  <Binding name="CLICK BotButtonsSecureAttack:LeftButton">
+    -- attack, target first
+  </Binding>
+  <Binding name="CLICK BotButtonsSecurePull:LeftButton">
+    -- pull, target first
+  </Binding>
   <Binding name="BOTBUTTONS_PASSIVE"    runOnUp="false">BotButtons_Fire("passive")</Binding>
   <Binding name="BOTBUTTONS_MELEEHOLD"  runOnUp="false">BotButtons_Fire("meleehold")</Binding>
   <Binding name="BOTBUTTONS_WAIT"       runOnUp="false">BotButtons_Fire("wait")</Binding>
-  <Binding name="CLICK BotButtonsSecureTankAttack:LeftButton">-- tank attack, target first</Binding>
+  <Binding name="CLICK BotButtonsSecureTankAttack:LeftButton">
+    -- tank attack, target first
+  </Binding>
   <Binding name="BOTBUTTONS_MAXDPS"     runOnUp="false">BotButtons_Fire("maxdps")</Binding>
   <Binding name="BOTBUTTONS_HEALERSTAY" runOnUp="false">BotButtons_Fire("healerstay")</Binding>
 </Bindings>

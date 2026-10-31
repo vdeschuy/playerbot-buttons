@@ -44,7 +44,7 @@ Copy `BotButtons.lua` and `Bindings.xml` into
 ## Title: |cff33ff99Bot|r|cffffd100Buttons|r
 ## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
 ## Author: Roshkosh
-## Version: 1.4.8
+## Version: 1.4.9
 ## SavedVariables: BotButtonsDB
 ## DefaultState: Enabled
 
@@ -90,7 +90,7 @@ live hostile target, the button selects the nearest enemy (the same thing a Tab
 press does) and then sends the command. A target you picked on purpose is kept.
 The three buttons are secure action buttons so the client permits the
 `/targetenemy` macro; existing key bindings are moved to the new secure
-bindings automatically the first time 1.4.8 loads.
+bindings automatically the first time 1.4.8 or later loads.
 
 If a name is not in your group, the whisper is skipped and a one-line hint is
 printed instead.
