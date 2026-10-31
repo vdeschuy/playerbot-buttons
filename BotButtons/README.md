@@ -44,7 +44,7 @@ Copy `BotButtons.lua` and `Bindings.xml` into
 ## Title: |cff33ff99Bot|r|cffffd100Buttons|r
 ## Notes: Draggable, keybindable quick-command buttons for cmangos playerbots
 ## Author: Roshkosh
-## Version: 1.4.7
+## Version: 1.4.8
 ## SavedVariables: BotButtonsDB
 ## DefaultState: Enabled
 
@@ -72,18 +72,25 @@ Use the interface number for your client from the table above.
 | Stay | `/p stay` | — |
 | Regroup | `/p flee` (stop attacking + follow) | — |
 | Summon | teleport the group's bots to you (`/p summon`) | — |
-| Attack | `/p attack` | — |
-| Pull | whisper `follow` to your tank, wait for its reply, then `/p pull` | — |
+| Attack | target nearest enemy if needed, then `/p attack` | — |
+| Pull | target nearest enemy if needed, whisper `follow` to your tank, wait for its reply, then `/p pull` | — |
 | Stop / Go | toggle `passive` on all bots (`all +passive` / `all -passive`) | force attack (`all -passive`) |
 | Melee Hold | toggle melee `passive` (`co +passive` / `co -passive`) | release melee (`co -passive`) |
 | Wait at Pull | toggle `wait for attack` (`co +wait for attack` / `co -wait for attack`) | force off (`co -wait for attack`) |
-| Tank Attack | whisper your tank `tank attack`, wait for its reply, then whisper `attack` | — |
+| Tank Attack | target nearest enemy if needed, whisper your tank `tank attack`, wait for its reply, then whisper `attack` | — |
 | Max DPS | `/p max dps` | — |
 | Healer Stay | whisper your healer `stay` | — |
 
 `/p` broadcasts to every bot in your group; the pull, tank-attack, melee and
 healer buttons whisper specific bots. The healer's and tank's names are
 configurable in settings, or with `/bb tank <name>` / `/bb healer <name>`.
+
+**Attack, Pull and Tank Attack target for you.** If you do not already have a
+live hostile target, the button selects the nearest enemy (the same thing a Tab
+press does) and then sends the command. A target you picked on purpose is kept.
+The three buttons are secure action buttons so the client permits the
+`/targetenemy` macro; existing key bindings are moved to the new secure
+bindings automatically the first time 1.4.8 loads.
 
 If a name is not in your group, the whisper is skipped and a one-line hint is
 printed instead.

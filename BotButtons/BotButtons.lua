@@ -54,6 +54,7 @@ local grip                  -- drag grip
 local buttonByKey = {}      -- action key -> button
 local settings, capture     -- windows
 local prefixRegistered = false
+local pendingLayout = false -- bar changes deferred until combat ends
 
 --============================================================================
 -- small helpers
@@ -140,8 +141,16 @@ local function ensureOptions()
     return O
 end
 
+-- The three targeting buttons are secure action buttons, which makes the bar
+-- protected. Its anchor/size/visibility cannot be changed during combat, so
+-- remember the request and apply it when the fight ends.
+local function combatLocked()
+    return InCombatLockdown and InCombatLockdown()
+end
+
 local function applyAnchor()
     if not bar then return end
+    if combatLocked() then pendingLayout = true; return end
     local p = O.point or DEFAULTS.point
     bar:ClearAllPoints()
     bar:SetPoint(p[1] or "BOTTOM", UIParent, p[2] or "BOTTOM", p[3] or 0, p[4] or 160)
@@ -321,6 +330,32 @@ BB_tankAttack = function()
 end
 
 --============================================================================
+-- target-then-act
+--============================================================================
+-- Attack, Pull and Tank Attack all act on YOUR target, so each one used to cost
+-- a "tab first" keypress. TargetNearestEnemy() is protected and an addon cannot
+-- call it, but a SecureActionButton can run a /targetenemy macro on a real
+-- keypress. Each of those three actions gets a hidden secure button for its
+-- key binding, and the visible button runs the same macro.
+--
+-- [noharm][dead] means "only pick a target when there is nothing to attack
+-- right now": a live hostile target you picked on purpose is kept, while no
+-- target, a friendly target or a corpse falls back to the nearest enemy.
+local TARGET_BUTTONS = {
+    attack     = "BotButtonsSecureAttack",
+    pull       = "BotButtonsSecurePull",
+    tankattack = "BotButtonsSecureTankAttack",
+}
+
+local function targetMacro(key)
+    return "/targetenemy [noharm][dead]\n/run BotButtons_Fire('" .. key .. "')"
+end
+
+local function clickBinding(key)
+    return "CLICK " .. TARGET_BUTTONS[key] .. ":LeftButton"
+end
+
+--============================================================================
 -- actions (order = order on the bar)
 --============================================================================
 local ACTIONS = {
@@ -347,13 +382,13 @@ local ACTIONS = {
       onLeft  = function() BB_sendGroup("summon") end },
 
     { key = "attack", label = "Attack", icon = "Ability_Warrior_Charge",
-      binding = "BOTBUTTONS_ATTACK",
-      desc = "Attack your current target.",
+      binding = clickBinding("attack"), legacyBinding = "BOTBUTTONS_ATTACK",
+      desc = "Attack your target. If you have no live hostile target, the nearest enemy is targeted first.",
       onLeft  = function() BB_sendGroup("attack") end },
 
     { key = "pull", label = "Pull", icon = "Ability_Hunter_AimedShot",
-      binding = "BOTBUTTONS_PULL",
-      desc = "Pull your current target (tank). Asks the tank to follow first (so it can move if it was holding position), waits for it to reply, then pulls.",
+      binding = clickBinding("pull"), legacyBinding = "BOTBUTTONS_PULL",
+      desc = "Pull your target (tank). If you have no live hostile target, the nearest enemy is targeted first. Asks the tank to follow first (so it can move if it was holding position), waits for it to reply, then pulls.",
       onLeft  = function() BB_pull() end },
 
     { key = "passive", label = "Stop / Go", icon = "Spell_Frost_FrostNova",
@@ -378,8 +413,8 @@ local ACTIONS = {
       onOff = function() BB_sendGroup("co -wait for attack") end },
 
     { key = "tankattack", label = "Tank Attack", icon = "Ability_Warrior_ShieldBash",
-      binding = "BOTBUTTONS_TANKATTACK",
-      desc = "Whisper your tank: drop passive and attack your target (runs into range when the fight has not started).",
+      binding = clickBinding("tankattack"), legacyBinding = "BOTBUTTONS_TANKATTACK",
+      desc = "Whisper your tank: drop passive and attack your target, which is the nearest enemy first when you have no live hostile target (runs into range when the fight has not started).",
       onLeft  = function() BB_tankAttack() end },
 
     { key = "maxdps", label = "Max DPS", icon = "Spell_Fire_Fireball02",
@@ -473,10 +508,63 @@ function BotButtons_Fire(key, rightClick)
     if fn then announce(a, rightClick) end
 end
 
+-- Hidden secure buttons behind the three targeting key bindings. They are kept
+-- shown (1x1, transparent, mouse-disabled) so a CLICK binding always has a
+-- clickable button even when the visible bar is hidden with /bb hide.
+local secureButtons = {}
+local function buildSecureButtons()
+    for key, name in pairs(TARGET_BUTTONS) do
+        if not secureButtons[key] then
+            local ok, b = pcall(CreateFrame, "Button", name, UIParent, "SecureActionButtonTemplate")
+            if ok and b then
+                b:SetSize(1, 1)
+                b:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+                b:SetAlpha(0)
+                b:EnableMouse(false)
+                b:RegisterForClicks("LeftButtonUp")
+                b:SetAttribute("type", "macro")
+                b:SetAttribute("macrotext", targetMacro(key))
+                secureButtons[key] = b
+            end
+        end
+    end
+end
+
+-- Move bindings made by older versions (BOTBUTTONS_ATTACK, ...) over to the
+-- CLICK bindings. A key that is already on the new binding wins; the stale old
+-- one is cleared. This keeps existing key setups without a re-bind.
+local function migrateTargetBindings()
+    local changed = false
+    for key in pairs(TARGET_BUTTONS) do
+        local a = actionByKey[key]
+        if a and a.legacyBinding then
+            local hasNew = false
+            for _, k in ipairs({ GetBindingKey(a.binding) }) do
+                if k and k ~= "" then hasNew = true end
+            end
+
+            local oldKeys = { GetBindingKey(a.legacyBinding) }
+            if hasNew then
+                for _, k in ipairs(oldKeys) do
+                    if k and k ~= "" then SetBinding(k); changed = true end
+                end
+            else
+                for _, k in ipairs(oldKeys) do
+                    if k and k ~= "" then SetBinding(k, a.binding); changed = true end
+                end
+            end
+        end
+    end
+    if changed and SaveBindings then
+        pcall(SaveBindings, GetCurrentBindingSet and GetCurrentBindingSet() or 2)
+    end
+end
+
 --============================================================================
 -- the bar
 --============================================================================
 BB_buildBar = function()
+    buildSecureButtons()
     if bar then return end
 
     bar = CreateFrame("Frame", "BotButtonsBar", UIParent, BackdropTemplateMixin and "BackdropTemplate")
@@ -499,8 +587,15 @@ BB_buildBar = function()
     gtex:SetTexture("Interface\\Buttons\\UI-Panel-ResizeButton")
 
     for _, a in ipairs(ACTIONS) do
-        local b = CreateFrame("Button", "BotButtonsButton" .. a.key, bar,
-                              BackdropTemplateMixin and "BackdropTemplate")
+        local isTarget = TARGET_BUTTONS[a.key] ~= nil
+        local template
+        if isTarget then
+            template = BackdropTemplateMixin and "SecureActionButtonTemplate,BackdropTemplate"
+                       or "SecureActionButtonTemplate"
+        else
+            template = BackdropTemplateMixin and "BackdropTemplate"
+        end
+        local b = CreateFrame("Button", "BotButtonsButton" .. a.key, bar, template)
         if b.SetBackdrop then
             b:SetBackdrop({
                 edgeFile = "Interface\\Buttons\\WHITE8X8",
@@ -509,7 +604,15 @@ BB_buildBar = function()
             })
             b:SetBackdropBorderColor(0, 0, 0, BORDER_ALPHA)
         end
-        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        if isTarget then
+            -- The secure template runs this macro on a real click/keypress;
+            -- setting our own OnClick would replace its handler.
+            b:RegisterForClicks("LeftButtonUp")
+            b:SetAttribute("type", "macro")
+            b:SetAttribute("macrotext", targetMacro(a.key))
+        else
+            b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        end
         b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
 
         b.icon = b:CreateTexture(nil, "ARTWORK")
@@ -517,9 +620,11 @@ BB_buildBar = function()
         b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -4, 4)
         b.icon:SetTexture("Interface\\Icons\\" .. a.icon)
 
-        b:SetScript("OnClick", function(_, mouseButton)
-            BotButtons_Fire(a.key, mouseButton == "RightButton")
-        end)
+        if not isTarget then
+            b:SetScript("OnClick", function(_, mouseButton)
+                BotButtons_Fire(a.key, mouseButton == "RightButton")
+            end)
+        end
         b:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText(a.label, 1, 1, 1)
@@ -548,6 +653,7 @@ end
 
 BB_layoutBar = function()
     if not bar then return end
+    if combatLocked() then pendingLayout = true; return end
     local n = #ACTIONS
     local size, gap = O.size, O.spacing
     local gripW = O.locked and 0 or 14
@@ -579,7 +685,9 @@ BB_layoutBar = function()
 end
 
 BB_updateBarVisibility = function()
-    if bar then show(bar, O.show) end
+    if not bar then return end
+    if combatLocked() then pendingLayout = true; return end
+    show(bar, O.show)
 end
 
 --============================================================================
@@ -985,10 +1093,12 @@ f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("UPDATE_BINDINGS")
 f:RegisterEvent("CHAT_MSG_WHISPER")
+f:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 f:SetScript("OnEvent", function(_, event, arg1, arg2)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         ensureOptions()
+        buildSecureButtons()            -- exist before any bound key can fire
         O.activeKey = nil               -- drop the old single-slot "last pressed" mark
         for _, a in ipairs(ACTIONS) do
             if a.isToggle and O.toggles[a.key] == nil then O.toggles[a.key] = false end
@@ -996,6 +1106,7 @@ f:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
     elseif event == "PLAYER_LOGIN" then
         ensureOptions()
+        migrateTargetBindings()
         BB_buildBar()
         applyAnchor()
         BB_layoutBar()
@@ -1007,6 +1118,13 @@ f:SetScript("OnEvent", function(_, event, arg1, arg2)
         if settings and settings:IsShown() then BB_refreshKeybinds() end
     elseif event == "CHAT_MSG_WHISPER" then
         tankAck(arg2)               -- arg1 = text, arg2 = sender
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if pendingLayout then
+            pendingLayout = false
+            applyAnchor()
+            BB_layoutBar()
+            BB_updateBarVisibility()
+        end
     end
 end)
 
